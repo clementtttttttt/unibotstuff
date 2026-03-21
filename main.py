@@ -78,7 +78,9 @@ def activate_collection_spinner():
 
 feature_params = dict(maxCorners=1,qualityLevel=.6,minDistance=25,blockSize=9)
 def should_i_quit():
-    return
+    if how_long_till_end() < 0: 
+        return True
+    return False
 def camera_check():
     #print("SHOW IMAGE!")
     ret, img = cap.read();
