@@ -6,11 +6,18 @@ import numpy as np
 from pupil_apriltags import Detector
 
 
+
+
+PARKING_TAG_ID = 2
+
 model = YOLO("best_ncnn_model",task="detect")
 
 CONFIDENCE_LEVEL = 0.7
 
+ALIGN_AREA_W = 20
 
+IW = 427
+IH = 240
     
 MOTLF = 21
 MOTLB = 20
@@ -87,38 +94,66 @@ def camera_check():
 
 
 cap = cv2.VideoCapture(0);
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, IW)  
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT,IH )
 cap.set(cv2.CAP_PROP_FPS, 60)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+
+
+
 def met_parking_criteria(colcnt):
     if colcnt > 8 or True:
         return True
     return False
 
+
+def get_targ_tag():
+    ret, rawimg = cap.read()
+    tag = get_targ_tag(rawimg)
+    img = cv2.cvtColor(rawimg, cv2.COLOR_BGR2GRAY)
+    at_detector = Detector(
+        families="tag36h11",
+        nthreads=4,
+        quad_decimate=1.0,
+        quad_sigma=0.0,
+        refine_edges=1,
+        decode_sharpening=0.25,
+        debug=0
+    )
+    tags  = at_detector.detect(img)
+    cv2.imshow("Image", img);
+    cv2.waitKey(1)
+
+    ret = None
+
+    for i in tags:
+        if i.tag_id == PARKING_TAG_ID:
+            ret = i
+            break
+
+    return ret
+
+
 def park_and_unload():
     
-    end = False
+    aligned = False
     while(not end):
-        ret, rawimg = cap.read()
-        img = cv2.cvtColor(rawimg, cv2.COLOR_BGR2GRAY)
-        at_detector = Detector(
-           families="tag36h11",
-           nthreads=4,
-           quad_decimate=1.0,
-           quad_sigma=0.0,
-           refine_edges=1,
-           decode_sharpening=0.25,
-           debug=0
-        )
-
-        tags  = at_detector.detect(img)
-        cv2.imshow("Image", img);
-        cv2.waitKey(1)
-        print("safs")
-        #print(tags)
-        if tags != null:
-            print(tags[0])
+        tag = get_targ_tag(rawimg)
+        if not aligned:
+            go_straight(-1)
+            sleep(0.1)
+            go_left(1);
+            sleep(0.1)
+        else:
+            if tag.center > (IW + ALIGN_AREA_W):
+                go_right(0.9)
+                sleep(0.1)
+            elif tag.center < (IW - ALIGN_AREA_W):
+                go_left(0.9)
+                sleep(0.1)
+            else:
+                aligned = True
 
 activate_collection_spinner();
 state = "scan"
