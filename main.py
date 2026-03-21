@@ -4,8 +4,10 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 from pupil_apriltags import Detector
+import time
 
 
+START_TIME = None
 
 
 PARKING_TAG_ID = 2
@@ -13,7 +15,7 @@ PARKING_TAG_ID = 2
 model = YOLO("best_ncnn_model",task="detect")
 
 CONFIDENCE_LEVEL = 0.7
-
+MATCH_LEN_SEC = 180
 ALIGN_AREA_W = 20
 
 IW = 427
@@ -33,6 +35,11 @@ motlf.frequency = (3333);
 motlb.frequency = (3333);
 motrf.frequency = (3333);
 motrb.frequency = (3333);
+
+
+def how_long_till_end():
+    return MATCH_LEN_SEC - time.time - START_TIME
+
 
 def mot_left_turn(damn):
     if damn >= 0:
@@ -134,9 +141,9 @@ def get_targ_tag():
 
     return ret
 
-
-def park_and_unload():
-    
+def align_to_tag():
+    if how_long_till_end() < 20:
+        return
     aligned = False
     while(not end):
         tag = get_targ_tag(rawimg)
@@ -155,10 +162,31 @@ def park_and_unload():
             else:
                 aligned = True
 
+
+def park_and_unload():
+    
+    for i in range(0, 4):
+        align_to_tag()
+        go_straight(1);
+        wait(2)
+        go_straight(-1)
+        wait(0.5)
+
+
+def wait_start():
+    #gpio detection logic goes here
+    start = False
+    while not start:
+        start = True #FIXME: GPIO BUTTON 
 activate_collection_spinner();
 state = "scan"
 
 counter = 0;
+
+wait_start()
+
+
+START_TIME = time.time()
 
 while not should_i_quit():
     found_balls = camera_check();
