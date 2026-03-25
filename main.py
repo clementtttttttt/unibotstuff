@@ -1,4 +1,4 @@
-from gpiozero import Device,PWMLED
+from gpiozero import Device,PWMLED,Button
 from time import sleep
 from ultralytics import YOLO
 import cv2
@@ -15,21 +15,23 @@ PARKING_TAG_ID = 2
 model = YOLO("best_ncnn_model",task="detect")
 
 CONFIDENCE_LEVEL = 0.7
-MATCH_LEN_SEC = 180
+MATCH_LEN_SEC = 175
 ALIGN_AREA_W = 20
 
 IW = 427
 IH = 240
     
-MOTLF = 21
-MOTLB = 20
-MOTRF = 16
-MOTRB = 12
+MOTRF = 20
+MOTRB = 21
+MOTLF = 16
+MOTLB = 12
+SW = 6
 
 motlf = PWMLED(MOTLF)
 motlb = PWMLED(MOTLB)
 motrf = PWMLED(MOTRF)
 motrb = PWMLED(MOTRB)
+sw = Button(SW)
 
 motlf.frequency = (3333);
 motlb.frequency = (3333);
@@ -38,7 +40,7 @@ motrb.frequency = (3333);
 
 
 def how_long_till_end():
-    return MATCH_LEN_SEC - time.time - START_TIME
+    return MATCH_LEN_SEC - (time.time() - START_TIME)
 
 
 def mot_left_turn(damn):
@@ -74,12 +76,17 @@ def mot_right_turn(damn):
                 motrb.value = -damn;
 
 def activate_collection_spinner():
+    motspin = PWMLED(13)
+    motspin.value = 0.2
     return
 
 feature_params = dict(maxCorners=1,qualityLevel=.6,minDistance=25,blockSize=9)
 def should_i_quit():
+    if not sw.is_pressed:
+        return True
     if how_long_till_end() < 0: 
         return True
+
     return False
 def camera_check():
     #print("SHOW IMAGE!")
@@ -102,7 +109,7 @@ def camera_check():
     return y;
 
 
-cap = cv2.VideoCapture(0);
+cap = cv2.VideoCapture(0,cv2.CAP_V4L);
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, IW)  
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT,IH )
 cap.set(cv2.CAP_PROP_FPS, 60)
@@ -119,7 +126,6 @@ def met_parking_criteria(colcnt):
 
 def get_targ_tag():
     ret, rawimg = cap.read()
-    tag = get_targ_tag(rawimg)
     img = cv2.cvtColor(rawimg, cv2.COLOR_BGR2GRAY)
     at_detector = Detector(
         families="tag36h11",
@@ -143,12 +149,18 @@ def get_targ_tag():
 
     return ret
 
+def backwards_and_180():
+    return
+    
+def activate_unload():
+    return
+
 def align_to_tag():
     if how_long_till_end() < 20:
         return
     aligned = False
-    while(not end):
-        tag = get_targ_tag(rawimg)
+    while(not aligned):
+        tag = get_targ_tag()
         if not aligned:
             go_straight(-1)
             sleep(0.1)
@@ -163,15 +175,18 @@ def align_to_tag():
                 sleep(0.1)
             else:
                 aligned = True
-
+                
+    backwards_and_180()
+    activate_unload()
+    
 
 def park_and_unload():
     
     for i in range(0, 4):
         align_to_tag()
-        go_straight(1);
+        go_straight(0.5);
         wait(2)
-        go_straight(-1)
+        go_straight(-0.5)
         wait(0.5)
 
 
@@ -179,16 +194,20 @@ def wait_start():
     #gpio detection logic goes here
     start = False
     while not start:
-        start = True #FIXME: GPIO BUTTON 
+        if sw.is_pressed:
+            start = True 
 activate_collection_spinner();
 state = "scan"
 
 counter = 0;
 
+camera_check()
 wait_start()
 
 
 START_TIME = time.time()
+
+
 
 while not should_i_quit():
     found_balls = camera_check();
@@ -201,15 +220,15 @@ while not should_i_quit():
     if not found_balls:
         print("Turning left...")
         
-        go_straight(-1);
+        go_straight(-0.5);
         sleep(0.1)
-        go_left(1);
+        go_left(0.5);
         sleep(0.1)
     else:
         found_balls = camera_check(); #confirmation
         print ("Straight on!")
-        go_straight(1);
+        go_straight(0.5);
         sleep(2.5)
-        counter += 8;
+        counter += 1;
     
 
